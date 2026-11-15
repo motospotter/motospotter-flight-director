@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="tr"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>MotoSpotter Flight Director V3 • Radar Control</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>
+:root{font-family:system-ui,-apple-system,Segoe UI,Arial,sans-serif;background:#071321;color:#edf5ff;color-scheme:dark}
+*{box-sizing:border-box}body{margin:0}.top{min-height:62px;padding:12px 17px;background:#0f2138;display:flex;justify-content:space-between;align-items:center;gap:10px;border-bottom:1px solid #304560}.brand{font-size:18px;font-weight:900;letter-spacing:.04em}.brand .moto{color:#ff5353}.brand .spot{color:#ffcb34}.subtitle{font-size:11px;color:#a6bdd6;font-weight:500}.connection{font-size:12px;background:#1b304c;padding:8px 10px;border-radius:999px;border:1px solid #35506d}
+.layout{height:calc(100dvh - 62px);min-height:450px;display:grid;grid-template-columns:minmax(0,1fr) 345px}#map{height:100%;width:100%;background:#14334b}.panel{background:#0c1b30;border-left:1px solid #2a4160;padding:16px;overflow:auto}.heading{font-size:11px;font-weight:800;letter-spacing:.12em;color:#a7c5e3;text-transform:uppercase;margin:16px 0 9px}.heading:first-child{margin-top:0}.card{background:#152842;border:1px solid #30496b;border-radius:12px;padding:13px;margin:8px 0}.small{font-size:12px;color:#aac2d9;line-height:1.5}.status{font-size:12px;color:#fdd36a;line-height:1.5;min-height:24px}.flight-name{font-size:24px;font-weight:900;margin:5px 0;color:#fff}.row{display:flex;gap:8px;flex-wrap:wrap}.btn{padding:11px 12px;border:none;border-radius:9px;background:#ffcd3f;color:#0d1b31;font-weight:800;cursor:pointer;font-size:13px}.btn:disabled{opacity:.4;cursor:not-allowed}.btn.secondary{background:#284462;color:white}.btn.ghost{background:#1b314d;color:#b9d2eb}.btn.full{width:100%}input{width:100%;border:1px solid #385675;border-radius:8px;background:#071a2d;color:#fff;padding:11px;margin:6px 0 9px;font-size:14px}label{font-size:12px;color:#c1d5ec}.notice{background:#3b2a1b;color:#ffe1aa;border:1px solid #775124;padding:9px;border-radius:9px;font-size:12px;line-height:1.5}.success{color:#79e7ae}.preview{border:1px dashed #54708e;border-radius:10px;background:#030a13;padding:14px 9px;min-height:98px;display:flex;align-items:center}.bar{width:100%;border-left:5px solid #ffd03a;background:linear-gradient(100deg,#0b2c58,#144b7c);padding:9px 12px;box-shadow:0 6px 20px #0006}.bar-top{font-size:11px;color:#ffd444;font-weight:900;letter-spacing:.1em}.bar-main{font-size:19px;font-weight:900;color:white}.bar-bottom{font-size:12px;color:#d5e7ff}.hidden{display:none!important}.plane-marker{background:transparent;border:none}.plane{display:flex;align-items:center;justify-content:center;width:37px;height:37px;border-radius:50%;color:#eafaff;background:#194766;border:2px solid #9bd4ed;font-size:23px;box-shadow:0 1px 9px #000b;line-height:1}.plane.active{background:#f8ce44;color:#12243a;border:3px solid white;box-shadow:0 0 0 4px #ffce4488}.leaflet-container{font:inherit}.leaflet-control-attribution{font-size:10px!important}.map-label{position:absolute;z-index:700;bottom:16px;left:13px;pointer-events:none;background:#061a2ccc;color:#fff;font-size:11px;padding:8px;border-radius:6px}
+@media(max-width:840px){.layout{grid-template-columns:minmax(0,1fr) 290px}.top{padding:9px}.brand{font-size:15px}}
+@media(max-width:650px){.layout{display:flex;flex-direction:column;height:auto}.layout #map{height:58dvh;min-height:340px;flex:none}.panel{border-left:0}.connection{max-width:50vw}.top{min-height:55px}}
+</style></head>
+<body>
+<header class="top"><div><div class="brand"><span class="moto">MOTO</span><span class="spot">SPOTTER</span> <span style="font-weight:600;font-size:12px">FLIGHT DIRECTOR V3</span></div><div class="subtitle">LTFM · Çok pistli radar kontrolü · SIMÜLASYON</div></div><div id="connection" class="connection">● Bağlantı bekleniyor</div></header>
+<main class="layout"><div style="position:relative;min-height:0"><div id="map"></div><div class="map-label">DEMO: Uçaklar temsili. Canlı ADS-B verisi bağlı değil.</div></div>
+<aside class="panel">
+  <div class="heading">Yönetici girişi</div>
+  <div id="authBox" class="card"><div id="loginForm"><label for="email">Firebase Authentication e-posta</label><input id="email" type="email" autocomplete="username" placeholder="e-posta adresin"><label for="password">Şifre</label><input id="password" type="password" autocomplete="current-password" placeholder="Firebase şifren"><button id="signIn" class="btn full">Oturum aç</button></div><div id="signedIn" class="hidden"><div class="small success">✓ Yönetici oturumu açık</div><div class="row" style="margin-top:9px"><button id="signOut" class="btn ghost">Çıkış yap</button></div></div><div id="authMsg" class="status"></div></div>
+  <div class="heading">Seçilen uçak</div><div class="card"><div class="small">Haritadaki uçak simgesine dokun.</div><div class="flight-name" id="flightName">Uçak seçilmedi</div><div class="small" id="flightInfo">Seçim kilitlenir; yeni bir uçağa dokunana kadar değişmez.</div><div class="row" style="margin-top:12px"><button id="toggle" class="btn" disabled>Alt bandı gizle</button><button id="clear" class="btn secondary" disabled>Seçimi temizle</button></div></div>
+  <div class="heading">Yayın grafiği önizlemesi</div><div class="preview" id="preview"><span class="small">Henüz seçili uçak yok</span></div>
+  <div class="row" style="margin-top:12px"><button id="center" class="btn secondary">LTFM'ye dön</button><a class="btn ghost" href="overlay.html?test=1" target="_blank" rel="noopener" style="text-decoration:none">Alt bant demo</a></div>
+  <div class="heading">Durum</div><div class="notice" id="modeNote">Firebase ayarları yükleniyor…</div>
+  <div class="small" style="margin-top:10px">Bu sürümde sadece örnek uçaklar bulunur. Gerçek uçuş numaraları, canlı konum veya pist ataması gösterilmez. Seçimin CameraFi'a aktarılması için Firebase bağlantısı ve güvenlik kuralları gerekir.</div>
+</aside></main>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script type="module">
+import {firebaseConfig, firebaseReady} from './firebase-config.js';
+import {initializeApp} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-app.js';
+import {getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-auth.js';
+import {getDatabase, ref, onValue, set} from 'https://www.gstatic.com/firebasejs/13.3.0/firebase-database.js';
+const $=id=>document.getElementById(id);
+const flights=[
+  {id:'demo1',callsign:'DEMO 001',aircraft:'Airbus A350-900',route:'Örnek yaklaşma',phase:'Simülasyon',lat:41.365,lon:28.755,heading:345},
+  {id:'demo2',callsign:'DEMO 002',aircraft:'Airbus A321neo',route:'Örnek yaklaşma',phase:'Simülasyon',lat:41.338,lon:28.690,heading:350},
+  {id:'demo3',callsign:'DEMO 003',aircraft:'Boeing 777-300ER',route:'Örnek yaklaşma',phase:'Simülasyon',lat:41.290,lon:28.815,heading:335},
+  {id:'demo4',callsign:'DEMO 004',aircraft:'Boeing 787-9',route:'Örnek kalkış',phase:'Simülasyon',lat:41.280,lon:28.700,heading:165}
+];
+let app, auth, db, user=null, active=null, working=false;
+let selectedId=null;
+const map=L.map('map',{zoomControl:true}).setView([41.2753,28.7519],11);
+L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:18,attribution:'© OpenStreetMap contributors'}).addTo(map);
+L.circleMarker([41.2753,28.7519],{radius:5,color:'#ffd035',fillColor:'#ffd035',fillOpacity:1}).addTo(map).bindTooltip('İstanbul Havalimanı – LTFM');
+const markers=flights.map(f=>{
+  const marker=L.marker([f.lat,f.lon],{icon:L.divIcon({className:'plane-marker',html:`<span class="plane" style="transform:rotate(${f.heading}deg)">✈</span>`,iconSize:[37,37],iconAnchor:[18,18]})}).addTo(map);
+  marker.bindTooltip(`${f.callsign} · DEMO`);marker.on('click',()=>selectFlight(f));return {f,marker};
+});
+function status(msg,connected=false){$('connection').textContent='● '+msg;$('connection').style.color=connected?'#79e7ae':'#ffd782'}
+function setMessage(msg){$('authMsg').textContent=msg;}
+function render(){
+  $('flightName').textContent=active?.callsign||'Uçak seçilmedi';
+  $('flightInfo').textContent=active?.callsign?`${active.aircraft} · ${active.route} · ${active.phase}`:'Seçim kilitlenir; yeni bir uçağa dokunana kadar değişmez.';
+  const canControl=!!user && firebaseReady && !working;
+  $('toggle').disabled=!canControl||!active?.callsign;
+  $('clear').disabled=!canControl||!active?.callsign;
+  $('toggle').textContent=active?.visible===false?'Alt bandı göster':'Alt bandı gizle';
+  markers.forEach(({f,marker})=>{
+    const node=marker.getElement()?.querySelector('.plane');if(node)node.classList.toggle('active',active?.callsign===f.callsign);
+    marker.setZIndexOffset(active?.callsign===f.callsign?500:0);
+  });
+  const preview=$('preview');preview.replaceChildren();
+  if(!active?.callsign||active.visible===false){const s=document.createElement('span');s.className='small';s.textContent=active?.visible===false?'Alt bant yayında gizli':'Henüz seçili uçak yok';preview.append(s);return}
+  const bar=document.createElement('div');bar.className='bar';
+  const top=document.createElement('div');top.className='bar-top';top.textContent='MOTOSPOTTER • NOW SHOWING — DEMO';
+  const title=document.createElement('div');title.className='bar-main';title.textContent=active.callsign+' · '+active.aircraft;
+  const sub=document.createElement('div');sub.className='bar-bottom';sub.textContent=active.route+' · '+active.phase+' · TEMSİLİ VERİ';
+  bar.append(top,title,sub);preview.append(bar);
+}
+async function publish(next){
+  if(!firebaseReady||!user){setMessage('Önce yönetici hesabıyla oturum aç.');return}
+  working=true;render();setMessage('Firebase veritabanına gönderiliyor…');
+  try{await set(ref(db,'broadcast/active'),next);setMessage('✓ Seçim buluta kaydedildi. CameraFi alt bandı güncellenmeli.');}
+  catch(e){setMessage('Kaydetme başarısız: '+e.code+' — Rules/UID ve bağlantıyı kontrol et.');}
+  finally{working=false;render()}
+}
+function newState(f,visible=true){return {callsign:f?.callsign||'',aircraft:f?.aircraft||'',route:f?.route||'',phase:f?.phase||'',visible,demo:true,updatedAt:Date.now()}}
+function selectFlight(f){if(!firebaseReady){active=newState(f);render();setMessage('Yerel demo: Firebase yapılandırılmadı, CameraFi’a gönderilmedi.');return}publish(newState(f))}
+$('toggle').onclick=()=>publish({...active,visible:!active.visible,updatedAt:Date.now()});
+$('clear').onclick=()=>publish(newState(null,false));
+$('center').onclick=()=>map.setView([41.2753,28.7519],11);
+$('signIn').onclick=async()=>{
+  if(!firebaseReady){setMessage('Önce firebase-config.js dosyasını yapılandır.');return}
+  const email=$('email').value.trim(),password=$('password').value;
+  if(!email||!password){setMessage('E-posta ve şifre gerekli.');return}
+  $('signIn').disabled=true;setMessage('Giriş yapılıyor…');
+  try{await signInWithEmailAndPassword(auth,email,password);$('password').value='';setMessage('✓ Giriş başarılı.');}
+  catch(e){setMessage('Giriş hatası: '+e.code)}finally{$('signIn').disabled=false}
+};
+$('signOut').onclick=()=>signOut(auth);
+if(!firebaseReady){
+  status('YEREL DEMO');$('modeNote').textContent='Firebase web uygulamasının ayarları henüz girilmedi. Harita ve önizleme yerel çalışır; cihazlar arası eşitleme KAPALIDIR.';setMessage('firebase-config.js dosyasındaki ORNEK_DEGER alanlarını doldur.');render();
+}else{
+  try{
+    app=initializeApp(firebaseConfig);auth=getAuth(app);db=getDatabase(app);
+    status('Firebase bağlanıyor…');$('modeNote').textContent='DEMO uçaklarla Firebase eşitlemesi aktif edilecek. Gerçek uçuş verisi yok.';
+    onAuthStateChanged(auth,u=>{user=u;$('loginForm').classList.toggle('hidden',!!u);$('signedIn').classList.toggle('hidden',!u);render()},error=>setMessage('Kimlik kontrol hatası: '+error.code));
+    onValue(ref(db,'broadcast/active'),snap=>{active=snap.val();status('Firebase eşitlendi',true);render();},e=>{status('Veritabanı okunamadı');setMessage('Veritabanı okuma hatası: '+e.code+' — Rules izinlerini kontrol et.')});
+  }catch(e){status('Yapılandırma hatası');$('modeNote').textContent='Firebase başlatılamadı: '+e.message}
+}
+render();
+</script></body></html>
